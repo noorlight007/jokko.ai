@@ -21,6 +21,7 @@ from db_driver_routes import get_all_driver_routes_for_a_driver_chatbot
 from db_contact_req import create_contact_request_chatbot
 from db_parcel_events import create_parcel_event_chatbot
 from db_pickup_events import create_pickup_event_chatbot
+from db_reg_request import send_registration_request
 # from db_driver_routes import get_all_driver_routes
 
 from message_ids import add_message_id
@@ -38,6 +39,9 @@ def data_key(sender):
 
 def user_key(sender):
     return f"wa:user_role:{sender}"
+
+def approve_registration_request(sender):
+    return f"wa:approve_registration_request:{sender}"
 
 
 def clear_user(sender) -> bool:
@@ -67,6 +71,23 @@ def get_state(sender):
 
 def set_state(sender, state):
     r.setex(state_key(sender), 60*60, state)  # 60 minutes TTL
+
+#######
+def get_state_with_registration_request(sender):
+    """Get stored conversation data for a user"""
+    state = r.get(approve_registration_request(sender))
+    if state:
+        return str(state)
+    return None
+
+def set_state_with_registration_request(sender, state):
+    r.setex(approve_registration_request(sender), 60*60, state)  # 60 minutes TTL
+
+def update_registration_request(sender, state):
+    """Update a specific field in user's conversation data"""
+    set_state_with_registration_request(sender, state)
+##############
+
 
 def clear_state(sender) -> bool:
     return r.delete(state_key(sender)) == 1
@@ -860,7 +881,7 @@ def process_webhook(self, payload: dict):
                             return "ok", 200
 
 
-
+                        # ✅✅✅
                         elif msg_type == "interactive_list_reply" and list_msg_id == "role_customer4":
                             text = "🙏 Super, merci pour votre choix !\nNous allons maintenant vous guider étape par étape pour finaliser votre demande.\nVeuillez sélectionner le service de votre choix :"
                             payload = {
@@ -4007,6 +4028,7 @@ def process_webhook(self, payload: dict):
                     #######################################  STARTS HERE #####################################
                     ##########################################################################################
 
+                    # ✅✅✅
                     elif get_state(sender) == "client_others":
                         if msg_type == "interactive_list_reply" and list_msg_id and list_msg_id.startswith("other_"):
                             # resetting error count on valid selection
@@ -4037,7 +4059,10 @@ def process_webhook(self, payload: dict):
 
                                 return "ok", 200
                             
+                            # ✅✅✅
                             elif list_msg_id in ["gp", "AIBD", "contact"]:
+                                # Add the selected data in redis
+                                update_registration_request(sender, list_msg_id)
                                 text = f"📝 Merci pour ces informations !\nVoici le récapitulatif de votre demande :\n\n👉 Autres services -> *{text_body}*\n\nMerci de vérifier que tout est correct 😊\n\nVeuillez confirmer la demande :"
                                 payload = {
                                     "messaging_product": "whatsapp",
@@ -4092,6 +4117,7 @@ def process_webhook(self, payload: dict):
                             print("⚠️ Unexpected button selection in summary step.")
                             return "ok", 200
 
+                    # ✅✅✅
                     elif get_state(sender) == "others_confirm":
                         if msg_type == "interactive_button_reply" and button_msg_id and button_msg_id.startswith("others_"):
                             # resetting error count on valid selection
@@ -4157,6 +4183,113 @@ def process_webhook(self, payload: dict):
                                 return "ok", 200
 
                             elif option_id == "Oui":
+                                # ✅✅✅
+                                if get_state_with_registration_request(sender) == "gp":
+                                    request_create, message = send_registration_request(sender, "professional")
+                                    if not request_create:
+                                        if message == "pending_request":
+                                            text = "⚠️ Vous avez déjà une demande d'inscription en cours. Nous vous invitons à patienter le temps que nous traitions votre demande ou à créer une nouvelle demande ultérieurement."
+                                            payload = {
+                                                "messaging_product": "whatsapp",
+                                                "to": sender,
+                                                "type": "text",
+                                                "text": {
+                                                    "body": text.strip()
+                                                }
+                                            }
+                                            clear_state(sender)
+
+                                            send_whatsapp_message(sender, payload, headers, url)
+                                            return "ok", 200
+                                        else:
+                                            text = "❌ Une erreur est survenue lors de la création de votre demande d'inscription. Veuillez réessayer dans quelques instants."
+                                            payload = {
+                                                "messaging_product": "whatsapp",
+                                                "to": sender,
+                                                "type": "text",
+                                                "text": {
+                                                    "body": text.strip()
+                                                }
+                                            }
+                                            clear_state(sender)
+
+                                            send_whatsapp_message(sender, payload, headers, url)
+                                            return "ok", 200
+
+                                # ✅✅✅
+                                elif get_state_with_registration_request(sender) == "AIBD":
+                                    request_create, message = send_registration_request(sender, "driver")
+                                    if not request_create:
+                                        if message == "pending_request":
+                                            text = "⚠️ Vous avez déjà une demande d'inscription en cours. Nous vous invitons à patienter le temps que nous traitions votre demande ou à créer une nouvelle demande ultérieurement."
+                                            payload = {
+                                                "messaging_product": "whatsapp",
+                                                "to": sender,
+                                                "type": "text",
+                                                "text": {
+                                                    "body": text.strip()
+                                                }
+                                            }
+                                            clear_state(sender)
+
+                                            send_whatsapp_message(sender, payload, headers, url)
+                                            return "ok", 200
+                                        else:
+                                            text = "❌ Une erreur est survenue lors de la création de votre demande d'inscription. Veuillez réessayer dans quelques instants."
+                                            payload = {
+                                                "messaging_product": "whatsapp",
+                                                "to": sender,
+                                                "type": "text",
+                                                "text": {
+                                                    "body": text.strip()
+                                                }
+                                            }
+                                            clear_state(sender)
+
+                                            send_whatsapp_message(sender, payload, headers, url)
+                                            return "ok", 200
+
+                                # ✅✅✅
+                                elif get_state_with_registration_request(sender) == "contact":
+                                    # Uploading contact request in the database
+                                
+                                    create_req, message = create_contact_request_chatbot(sender)
+                                    if not create_req:
+                                        if message == "open_request_exists":
+                                            text = "Vous avez déjà une demande de contact en cours. Veuillez patienter jusqu'à sa clôture. Merci !"
+                                            payload = {
+                                                "messaging_product": "whatsapp",
+                                                "to": sender,
+                                                "type": "text",
+                                                "text": {
+                                                    "body": text.strip()
+                                                }
+                                            }
+
+                                            clear_state(sender)
+
+                                            send_whatsapp_message(sender, payload, headers, url)
+
+                                            return "Okay", 200
+                                        else:
+                                            text = "❌ Une erreur est survenue lors de la création de votre demande de contact. Veuillez réessayer ultérieurement."
+                                            payload = {
+                                                "messaging_product": "whatsapp",
+                                                "to": sender,
+                                                "type": "text",
+                                                "text": {
+                                                    "body": text.strip()
+                                                }
+                                            }
+
+                                            clear_state(sender)
+
+                                            send_whatsapp_message(sender, payload, headers, url)
+
+                                            return "Okay", 200                                
+
+
+
                                 # Here you would typically trigger the actual service request based on collected data
                                 text = "📩 Merci, votre demande a bien été prise en compte.\n\n📞 Nous vous contacterons très bientôt !\n\n🙏 Merci de nous avoir fait confiance.\nÀ très bientôt pour un nouveau service !"
                                 payload = {
