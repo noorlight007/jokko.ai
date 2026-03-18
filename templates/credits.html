@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+
+{% block title %}Credits{% endblock %}
+{% block page_title %}Credits{% endblock %}
+
+{% block content %}
+<div class="accordion" id="creditsAccordion">
+
+    <!-- Credit allowance -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingAllowance">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAllowance" aria-expanded="false">
+                Credit allowance for new user
+            </button>
+        </h2>
+        <div id="collapseAllowance" class="accordion-collapse collapse" data-bs-parent="#creditsAccordion">
+            <div class="accordion-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Current allowance</label>
+                        <input type="number" min="0" class="form-control" id="creditAllowanceValue"
+                               value="{{ credit_allowance if credit_allowance is not none else 0 }}">
+                    </div>
+                    <div class="col-md-3">
+                        <button id="creditAllowanceSubmitBtn" type="button" class="btn btn-primary w-100">
+                            <span class="btn-text">Update allowance</span>
+                            <span class="btn-loading d-none">
+                                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                Saving...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Credit deductions -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingDeductions">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDeductions" aria-expanded="false">
+                Credit deduction operations
+            </button>
+        </h2>
+        <div id="collapseDeductions" class="accordion-collapse collapse" data-bs-parent="#creditsAccordion">
+            <div class="accordion-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Action</th>
+                                <th>Deduction value</th>
+                                <th>Updated at</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if credit_deductions %}
+                                {% for item in credit_deductions %}
+                                <tr>
+                                    <td>{{ item.actions }}</td>
+                                    <td>{{ item.credits_deduction_value }}</td>
+                                    <td>
+                                        {{ item.updated_at.strftime('%B %d, %Y %I:%M %p') if item.updated_at else '-' }}
+                                    </td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#editDeductionModal"
+                                            onclick="openDeductionEditModal('{{ item.actions|escape }}', '{{ item.credits_deduction_value }}')">
+                                            Edit
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No credit deduction operations found.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingClientBalances">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseClientBalances" aria-expanded="true">
+                Client credit balances
+            </button>
+        </h2>
+        <div id="collapseClientBalances" class="accordion-collapse collapse show" data-bs-parent="#creditsAccordion">
+            <div class="accordion-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        
+                        <input
+                            type="text"
+                            id="userCreditSearch"
+                            class="form-control"
+                            placeholder="Search WhatsApp number..."
+                        >
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle" id="userCreditBalanceTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>User WhatsApp</th>
+                                <th>User type</th>
+                                <th>Credits balance</th>
+                                <th>Balance updated</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if user_credit_balances %}
+                                {% for item in user_credit_balances %}
+                                <tr data-wp-number="{{ item.wp_number }}">
+                                    <td>{{ item.wp_number }}</td>
+                                    <td>{{ item.user_type }}</td>
+                                    <td>{{ item.credits_balance }}</td>
+                                    <td>{{ item.updated_at.strftime('%B %d, %Y %I:%M %p') if item.updated_at else '-' }}</td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#editClientBalanceModal"
+                                            onclick="openClientBalanceEditModal('{{ item.user_id }}', '{{ item.wp_number|escape }}', '{{ item.credits_balance }}')">
+                                            Update balance
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">No client balances found.</td>
+                                </tr>
+                            {% endif %}
+                            <tr id="userCreditNoResultsRow" class="d-none">
+                                <td colspan="5" class="text-center text-muted">No matching users found.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit deduction modal -->
+<div class="modal fade" id="editDeductionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="creditDeductionForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit credit deduction</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Action</label>
+                        <input type="text" class="form-control" id="creditDeductionActionLabel" disabled>
+                        <input type="hidden" id="creditDeductionAction">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Deduction value</label>
+                        <input type="number" min="0" class="form-control" id="creditDeductionValue" required>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="creditDeductionSubmitBtn" type="submit" class="btn btn-primary">
+                        <span class="btn-text">Update deduction</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Saving...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editClientBalanceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="clientCreditBalanceForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Update client credit balance</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" id="clientCreditUserId">
+
+                    <div class="mb-3">
+                        <label class="form-label">Client WhatsApp</label>
+                        <input type="text" class="form-control" id="clientCreditWhatsapp" disabled>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Credits balance</label>
+                        <input type="number" min="0" class="form-control" id="clientCreditBalanceValue" required>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="clientCreditBalanceSubmitBtn" type="submit" class="btn btn-primary">
+                        <span class="btn-text">Update balance</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Saving...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+function setButtonLoading(button, isLoading) {
+    if (!button) return;
+
+    const textEl = button.querySelector(".btn-text");
+    const loadingEl = button.querySelector(".btn-loading");
+
+    button.disabled = isLoading;
+
+    if (textEl) {
+        textEl.classList.toggle("d-none", isLoading);
+    }
+
+    if (loadingEl) {
+        loadingEl.classList.toggle("d-none", !isLoading);
+    }
+}
+
+function showResultAndReload(icon, title, text) {
+    Swal.fire({ icon, title, text }).then(() => {
+        window.location.reload();
+    });
+}
+
+async function sendRequest(url, method, payload = null) {
+    const options = {
+        method: method,
+        headers: {
+            "Content-Type": "application/json"
+        }
+    };
+
+    if (payload) {
+        options.body = JSON.stringify(payload);
+    }
+
+    const response = await fetch(url, options);
+    return await response.json();
+}
+
+function openDeductionEditModal(action, value) {
+    document.getElementById("creditDeductionAction").value = action;
+    document.getElementById("creditDeductionActionLabel").value = action;
+    document.getElementById("creditDeductionValue").value = value;
+}
+
+document.getElementById("creditAllowanceSubmitBtn").addEventListener("click", async function() {
+    const submitBtn = document.getElementById("creditAllowanceSubmitBtn");
+    const value = parseInt(document.getElementById("creditAllowanceValue").value || "0");
+
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const result = await sendRequest("/api/credits/allowance", "POST", {
+            credits_allowance_value: value
+        });
+
+        showResultAndReload(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        showResultAndReload("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+
+document.getElementById("creditDeductionForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("creditDeductionSubmitBtn");
+    const action = document.getElementById("creditDeductionAction").value;
+    const value = parseInt(document.getElementById("creditDeductionValue").value || "0");
+
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const result = await sendRequest("/api/credits/deduction", "POST", {
+            actions: action,
+            credits_deduction_value: value
+        });
+
+        const modalEl = document.getElementById("editDeductionModal");
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+
+        showResultAndReload(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        showResultAndReload("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+</script>
+
+<script>
+function openClientBalanceEditModal(userId, wpNumber, balance) {
+    document.getElementById("clientCreditUserId").value = userId;
+    document.getElementById("clientCreditWhatsapp").value = wpNumber;
+    document.getElementById("clientCreditBalanceValue").value = balance;
+}
+
+document.getElementById("clientCreditBalanceForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("clientCreditBalanceSubmitBtn");
+    const userId = parseInt(document.getElementById("clientCreditUserId").value);
+    const creditsBalance = parseInt(document.getElementById("clientCreditBalanceValue").value || "0");
+
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const result = await sendRequest("/api/credits/client-balance", "POST", {
+            user_id: userId,
+            credits_balance: creditsBalance
+        });
+
+        const modalEl = document.getElementById("editClientBalanceModal");
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+
+        showResultAndReload(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        showResultAndReload("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("userCreditSearch");
+    const table = document.getElementById("userCreditBalanceTable");
+    const noResultsRow = document.getElementById("userCreditNoResultsRow");
+
+    if (!searchInput || !table) return;
+
+    searchInput.addEventListener("input", function () {
+        const keyword = searchInput.value.trim().toLowerCase();
+        const rows = table.querySelectorAll("tbody tr[data-wp-number]");
+
+        let visibleCount = 0;
+
+        rows.forEach((row) => {
+            const wpNumber = (row.getAttribute("data-wp-number") || "").toLowerCase();
+            const matched = wpNumber.includes(keyword);
+
+            row.classList.toggle("d-none", !matched);
+
+            if (matched) {
+                visibleCount += 1;
+            }
+        });
+
+        if (noResultsRow) {
+            noResultsRow.classList.toggle("d-none", visibleCount !== 0);
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Professional Routes{% endblock %}
+{% block page_title %}Professional Routes{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+        <div class="d-flex justify-content-end mb-3">
+            <button class="btn btn-sm btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#professionalRouteModal"
+                    onclick="openProfessionalRouteCreateModal()">
+                Add New
+            </button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Professional WhatsApp</th>
+                        <th>Route ID <span class="text-secondary ms-1" style="font-size: small;">(Click)</span></th>
+                        <th>Status</th>
+                        <th>Updated At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if professional_routes.data %}
+                        {% for item in professional_routes.data %}
+                        <tr>
+                            <td>{{ item.professional_wp_number }}</td>
+                            <td class="text-center">
+                                <a href="#"
+                                   class="fw-semibold"
+                                   data-bs-toggle="modal"
+                                   data-bs-target="#routeDetailsModal"
+                                   onclick="openRouteDetailsModal('{{ item.id }}')">
+                                    {{ item.id }}
+                                </a>
+                            </td>
+                            <td>{% if item.status == "Active" %}<span class="badge bg-success">{{ item.status }}</span>{% else %}<span class="badge bg-danger">{{ item.status }}</span>{% endif %}</td>
+                            <td>{{ item.updated_at.strftime('%B %d, %Y %I:%M %p') if item.updated_at else '-' }}</td>
+                            <td>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        onclick="openProfessionalRouteEditModal('{{ item.id }}')">
+                                    Update
+                                </button>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        onclick="openProfessionalRouteDeleteModal('{{ item.id }}', '{{ item.professional_wp_number|escape }}')">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">No professional routes found.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Route Details Modal -->
+<div class="modal fade" id="routeDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Route Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-5">
+                <div class="row mb-2">
+                    <div class="col-5 fw-bold">Professional</div>
+                    <div class="col-7" id="detailsProfessional"></div>
+                </div>
+                <hr>
+                <div class="row mb-2">
+                    <div class="col-5 fw-bold">From Country</div>
+                    <div class="col-7" id="detailsFromCountry"></div>
+                </div>
+                <hr>
+                <div class="row mb-2">
+                    <div class="col-5 fw-bold">From City</div>
+                    <div class="col-7" id="detailsFromCity"></div>
+                </div>
+                <hr>
+                <div class="row mb-2">
+                    <div class="col-5 fw-bold">To Country</div>
+                    <div class="col-7" id="detailsToCountry"></div>
+                </div>
+                <hr>
+                <div class="row mb-2">
+                    <div class="col-5 fw-bold">To City</div>
+                    <div class="col-7" id="detailsToCity"></div>
+                </div>
+                <hr>
+                <div class="row mb-2">
+                    <div class="col-5 fw-bold">Travel period</div>
+                    <div class="col-7" id="detailsTravelPeriod"></div>
+                </div>
+                <hr>
+                <div class="row mb-2">
+                    <div class="col-5 fw-bold">Shipment type</div>
+                    <div class="col-7" id="detailsShipmentType"></div>
+                </div>
+                <hr>
+                <div class="row mb-0">
+                    <div class="col-5 fw-bold">Status</div>
+                    <div class="col-7" id="detailsStatus"></div>
+                </div>
+                <hr>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="professionalRouteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="professionalRouteForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="professionalRouteModalTitle">Add Professional Route</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" id="professionalRouteId">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Professional</label>
+                            <select class="form-select" id="professionalUserId" required>
+                                <option value="">Choose professional</option>
+                                {% for user in professional_options %}
+                                <option value="{{ user.id }}">{{ user.wp_number }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="professionalRouteStatus" required>
+                                <option value="Active">Active</option>
+                                <option value="Deactive">Deactive</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">From Country</label>
+                            <select class="form-select" id="fromCountryId" required>
+                                <option value="">Choose country</option>
+                                {% for country in country_options %}
+                                <option value="{{ country.id }}">{{ country.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">To Country</label>
+                            <select class="form-select" id="toCountryId" required>
+                                <option value="">Choose country</option>
+                                {% for country in country_options %}
+                                <option value="{{ country.id }}">{{ country.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">From City</label>
+                            <select class="form-select" id="fromCityId" required>
+                                <option value="">Choose city</option>
+                                {% for city in city_options %}
+                                <option value="{{ city.id }}">{{ city.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">To City</label>
+                            <select class="form-select" id="toCityId" required>
+                                <option value="">Choose city</option>
+                                {% for city in city_options %}
+                                <option value="{{ city.id }}">{{ city.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Travel period</label>
+                            <select class="form-select" id="travelPeriod" required>
+                                <option value="">Choose travel period</option>
+                                <option value="Dans moins de 72 heures">Dans moins de 72 heures</option>
+                                <option value="Cette semaine">Cette semaine</option>
+                                <option value="La semaine prochaine">La semaine prochaine</option>
+                                <option value="Une date ultérieure">Une date ultérieure</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Shipment type</label>
+                            <select class="form-select" id="shipmentType" required>
+                                <option value="">Choose shipment type</option>
+                                <option value="Documents">Documents</option>
+                                <option value="Petit colis">Petit colis</option>
+                                <option value="Moyen colis">Moyen colis</option>
+                                <option value="Grand colis">Grand colis</option>
+                                <option value="Mixte petit/moyen colis">Mixte petit/moyen colis</option>
+                                <option value="Mixte tous types colis">Mixte tous types colis</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="professionalRouteSubmitBtn" type="submit" class="btn btn-primary">
+                        <span class="btn-text">Save</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Saving...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteProfessionalRouteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="deleteProfessionalRouteForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Professional Route</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="deleteProfessionalRouteId">
+                    <p class="mb-0" id="deleteProfessionalRouteMessage"></p>
+                </div>
+                <div class="modal-footer">
+                    <button id="deleteProfessionalRouteSubmitBtn" type="submit" class="btn btn-danger">
+                        <span class="btn-text">Delete</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Deleting...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+const professionalRouteMap = {
+    {% if professional_routes.data %}
+        {% for item in professional_routes.data %}
+        "{{ item.id }}": {
+            id: "{{ item.id }}",
+            professional_user_id: "{{ item.professional_user_id }}",
+            professional_wp_number: "{{ item.professional_wp_number|escape }}",
+            from_country_id: "{{ item.from_country_id }}",
+            to_country_id: "{{ item.to_country_id }}",
+            from_city_id: "{{ item.from_city_id }}",
+            to_city_id: "{{ item.to_city_id }}",
+            from_country: "{{ item.from_country|escape }}",
+            to_country: "{{ item.to_country|escape }}",
+            from_city: "{{ item.from_city|escape }}",
+            to_city: "{{ item.to_city|escape }}",
+            travel_period: "{{ item.travel_period|escape }}",
+            shipment_type: "{{ item.shipment_type|escape }}",
+            status: "{{ item.status }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    {% endif %}
+};
+
+function setButtonLoading(button, isLoading) {
+    if (!button) return;
+    const textEl = button.querySelector(".btn-text");
+    const loadingEl = button.querySelector(".btn-loading");
+    button.disabled = isLoading;
+    if (textEl) textEl.classList.toggle("d-none", isLoading);
+    if (loadingEl) loadingEl.classList.toggle("d-none", !isLoading);
+}
+
+function reloadAfterAlert(icon, title, text) {
+    Swal.fire({ icon, title, text }).then(() => {
+        window.location.reload();
+    });
+}
+
+function openRouteDetailsModal(routeId) {
+    const item = professionalRouteMap[routeId];
+    document.getElementById("detailsProfessional").textContent = item.professional_wp_number;
+    document.getElementById("detailsFromCountry").textContent = item.from_country;
+    document.getElementById("detailsToCountry").textContent = item.to_country;
+    document.getElementById("detailsFromCity").textContent = item.from_city;
+    document.getElementById("detailsToCity").textContent = item.to_city;
+    document.getElementById("detailsTravelPeriod").textContent = item.travel_period;
+    document.getElementById("detailsShipmentType").textContent = item.shipment_type;
+    document.getElementById("detailsStatus").textContent = item.status;
+}
+
+function openProfessionalRouteCreateModal() {
+    document.getElementById("professionalRouteModalTitle").textContent = "Add Professional Route";
+    document.getElementById("professionalRouteId").value = "";
+    document.getElementById("professionalUserId").value = "";
+    document.getElementById("fromCountryId").value = "";
+    document.getElementById("toCountryId").value = "";
+    document.getElementById("fromCityId").value = "";
+    document.getElementById("toCityId").value = "";
+    document.getElementById("travelPeriod").value = "";
+    document.getElementById("shipmentType").value = "";
+    document.getElementById("professionalRouteStatus").value = "Active";
+}
+
+function openProfessionalRouteEditModal(routeId) {
+    const item = professionalRouteMap[routeId];
+    new bootstrap.Modal(document.getElementById("professionalRouteModal")).show();
+
+    document.getElementById("professionalRouteModalTitle").textContent = "Update Professional Route";
+    document.getElementById("professionalRouteId").value = item.id;
+    document.getElementById("professionalUserId").value = item.professional_user_id;
+    document.getElementById("fromCountryId").value = item.from_country_id;
+    document.getElementById("toCountryId").value = item.to_country_id;
+    document.getElementById("fromCityId").value = item.from_city_id;
+    document.getElementById("toCityId").value = item.to_city_id;
+    document.getElementById("travelPeriod").value = item.travel_period;
+    document.getElementById("shipmentType").value = item.shipment_type;
+    document.getElementById("professionalRouteStatus").value = item.status;
+}
+
+function openProfessionalRouteDeleteModal(routeId, professionalWp) {
+    new bootstrap.Modal(document.getElementById("deleteProfessionalRouteModal")).show();
+    document.getElementById("deleteProfessionalRouteId").value = routeId;
+    document.getElementById("deleteProfessionalRouteMessage").textContent =
+        `Are you sure you want to delete route #${routeId} for professional ${professionalWp}?`;
+}
+
+async function sendRequest(url, method, payload = null) {
+    const options = {
+        method: method,
+        headers: { "Content-Type": "application/json" }
+    };
+    if (payload) options.body = JSON.stringify(payload);
+    const response = await fetch(url, options);
+    return await response.json();
+}
+
+document.getElementById("professionalRouteForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("professionalRouteSubmitBtn");
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const routeId = document.getElementById("professionalRouteId").value;
+        const payload = {
+            professional_user_id: parseInt(document.getElementById("professionalUserId").value),
+            from_country_id: parseInt(document.getElementById("fromCountryId").value),
+            to_country_id: parseInt(document.getElementById("toCountryId").value),
+            from_city_id: parseInt(document.getElementById("fromCityId").value),
+            to_city_id: parseInt(document.getElementById("toCityId").value),
+            travel_period: document.getElementById("travelPeriod").value,
+            shipment_type: document.getElementById("shipmentType").value,
+            status: document.getElementById("professionalRouteStatus").value
+        };
+
+        const url = routeId ? `/api/professional-routes/${routeId}` : `/api/professional-routes`;
+        const method = routeId ? "PUT" : "POST";
+
+        const result = await sendRequest(url, method, payload);
+
+        reloadAfterAlert(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        reloadAfterAlert("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+
+document.getElementById("deleteProfessionalRouteForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("deleteProfessionalRouteSubmitBtn");
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const routeId = document.getElementById("deleteProfessionalRouteId").value;
+        const result = await sendRequest(`/api/professional-routes/${routeId}`, "DELETE");
+
+        reloadAfterAlert(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        reloadAfterAlert("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+</script>
+{% endblock %}

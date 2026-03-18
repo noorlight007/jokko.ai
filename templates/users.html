@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Users{% endblock %}
+{% block page_title %}Users{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>WhatsApp</th>
+                        <th>User type</th>
+                        <th>Joined at</th>
+                        
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if users %}
+                        {% for user in users %}
+                        <tr>
+                            <td>
+                                <a href="#"
+                                   class="fw-semibold"
+                                   data-bs-toggle="modal"
+                                   data-bs-target="#userDetailsModal{{ user.id }}">
+                                    {{ user.wp_number }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if user.user_type == 'client' %}bg-primary
+                                    {% elif user.user_type == 'professional' %}bg-success
+                                    {% elif user.user_type == 'driver' %}bg-warning text-dark
+                                    {% else %}bg-secondary
+                                    {% endif %}">
+                                    {{ user.user_type|capitalize }}
+                                </span>
+                            </td>
+                            <td>{{ user.joined_at if user.joined_at else '-' }}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#changeRoleModal{{ user.id }}">
+                                        Change role
+                                    </button>
+
+                                    <button type="button" class="btn btn-sm btn-outline-secondary">
+                                        Chats
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                No users found.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if users %}
+    {% for user in users %}
+    <!-- User Details Modal -->
+    <div class="modal fade" id="userDetailsModal{{ user.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">User Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-5">
+                    <div class="row mb-2">
+                        <div class="col-5 fw-semibold">ID</div>
+                        <div class="col-7">{{ user.id }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-5 fw-semibold">Profile name</div>
+                        <div class="col-7">{{ user.wp_profile_name if user.wp_profile_name else '-' }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-5 fw-semibold">WhatsApp</div>
+                        <div class="col-7">{{ user.wp_number }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-5 fw-semibold">User type</div>
+                        <div class="col-7">{{ user.user_type|capitalize }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-5 fw-semibold">Joined at</div>
+                        <div class="col-7">{{ user.joined_at if user.joined_at else '-' }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-5 fw-semibold">Updated at</div>
+                        <div class="col-7">{{ user.updated_at if user.updated_at else '-' }}</div>
+                    </div>
+                    <div class="row mb-0 mt-3">
+                        <div class="col-5 fw-bold">Credit remaining</div>
+                        <div class="col-7"><h4>{{ user.credit_balance if user.credit_balance is not none else 0 }}</h4></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Role Modal -->
+    <div class="modal fade" id="changeRoleModal{{ user.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form class="change-role-form" data-wp-number="{{ user.wp_number }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Change User Role</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Current role</label>
+                            <div><span class="badge 
+                                    {% if user.user_type == 'client' %}bg-primary
+                                    {% elif user.user_type == 'professional' %}bg-success
+                                    {% elif user.user_type == 'driver' %}bg-warning text-dark
+                                    {% else %}bg-secondary
+                                    {% endif %}">
+                                    {{ user.user_type|capitalize }}
+                                </span></div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Select new role</label>
+                            <select class="form-select" name="new_role" required>
+                                <option value="">Choose role</option>
+                                <option value="client" {% if user.user_type == 'client' %}selected{% endif %}>Client</option>
+                                <option value="professional" {% if user.user_type == 'professional' %}selected{% endif %}>Professional</option>
+                                <option value="driver" {% if user.user_type == 'driver' %}selected{% endif %}>Driver</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary submit-role-btn">
+                            <span class="btn-text">Update role</span>
+                            <span class="btn-loading d-none">
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                Updating...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".change-role-form").forEach(function (form) {
+        form.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            console.log("submit fired");
+
+            const wpNumber = form.getAttribute("data-wp-number");
+            const select = form.querySelector('select[name="new_role"]');
+            const submitBtn = form.querySelector(".submit-role-btn");
+            const btnText = form.querySelector(".btn-text");
+            const btnLoading = form.querySelector(".btn-loading");
+
+            if (!select.value) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Validation error",
+                    text: "Please select a role."
+                });
+                return;
+            }
+
+            submitBtn.disabled = true;
+            btnText.classList.add("d-none");
+            btnLoading.classList.remove("d-none");
+
+            try {
+                const response = await fetch("/api/users/change-role", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        wp_number: wpNumber,
+                        new_role: select.value
+                    })
+                });
+
+                const result = await response.json();
+
+                const modalEl = form.closest(".modal");
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+
+                if (result.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: result.message
+                    });
+                } else {
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Failed",
+                        text: result.message || "Could not update role."
+                    });
+                }
+
+                window.location.reload();
+            } catch (err) {
+                console.error(err);
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Failed",
+                    text: "Something went wrong while updating the role."
+                });
+
+                window.location.reload();
+            } finally {
+                submitBtn.disabled = false;
+                btnText.classList.remove("d-none");
+                btnLoading.classList.add("d-none");
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

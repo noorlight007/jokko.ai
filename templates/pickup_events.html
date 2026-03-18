@@ -1,0 +1,695 @@
+{% extends "base.html" %}
+
+{% block title %}Pickup Events{% endblock %}
+{% block page_title %}Pickup Events{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+
+        <div class="row g-3 align-items-end mb-3">
+            <div class="col-md-3">
+                <label for="pickupEventSearch" class="form-label fw-semibold">Search by creator WhatsApp</label>
+                <input type="text" id="pickupEventSearch" class="form-control" placeholder="Type WhatsApp number...">
+            </div>
+
+            <div class="col-md-2">
+                <label for="pickupEventStatusFilter" class="form-label fw-semibold">Event status</label>
+                <select id="pickupEventStatusFilter" class="form-select">
+                    <option value="">All statuses</option>
+                    <option value="waiting">Waiting</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label for="pickupEventFromDate" class="form-label fw-semibold">From date</label>
+                <input type="date" id="pickupEventFromDate" class="form-control">
+            </div>
+
+            <div class="col-md-2">
+                <label for="pickupEventToDate" class="form-label fw-semibold">To date</label>
+                <input type="date" id="pickupEventToDate" class="form-control">
+            </div>
+
+            <div class="col-md-3 d-flex gap-2 justify-content-md-end">
+                <button type="button" class="btn btn-outline-primary" id="todayPickupEventsBtn">
+                    Today's Events
+                </button>
+                <button class="btn btn-primary"
+                        data-bs-toggle="modal"
+                        data-bs-target="#createPickupEventModal"
+                        onclick="resetCreatePickupEventModal()">
+                    Add New
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle" id="pickupEventsTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Created By User (WhatsApp)</th>
+                        <th>Details</th>
+                        <th>Status</th>
+                        <th>Invitations</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if pickup_events.data %}
+                        {% for item in pickup_events.data %}
+                        <tr
+                            data-user-wp="{{ item.created_by_user_wp_number }}"
+                            data-status="{{ item.event_status }}"
+                            data-created-at="{{ item.created_at.strftime('%Y-%m-%d') if item.created_at else '' }}"
+                        >
+                            <td>{{ item.created_by_user_wp_number }}</td>
+
+                            <td>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#pickupEventDetailsModal"
+                                        onclick="openPickupEventDetailsModal('{{ item.id }}')">
+                                    Check
+                                </button>
+                            </td>
+
+                            <td>
+                                <span class="badge
+                                    {% if item.event_status == 'waiting' %}bg-warning text-dark
+                                    {% elif item.event_status == 'accepted' %}bg-success
+                                    {% elif item.event_status == 'cancelled' %}bg-danger
+                                    {% else %}bg-secondary
+                                    {% endif %}">
+                                    {{ item.event_status }}
+                                </span>
+                            </td>
+
+                            <td>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-info"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#pickupEventInvitationsModal"
+                                        onclick="openPickupEventInvitationsModal('{{ item.id }}')">
+                                    Check
+                                </button>
+                            </td>
+
+                            <td>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#updatePickupEventStatusModal"
+                                            onclick="openUpdatePickupEventStatusModal('{{ item.id }}', '{{ item.created_by_user_wp_number|escape }}', '{{ item.event_status }}')">
+                                        Update Status
+                                    </button>
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deletePickupEventModal"
+                                            onclick="openDeletePickupEventModal('{{ item.id }}', '{{ item.created_by_user_wp_number|escape }}')">
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        <tr id="pickupEventsNoResultsRow" class="d-none">
+                            <td colspan="5" class="text-center text-muted">No matching pickup events found.</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">No pickup events found.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create Pickup Event Modal -->
+<div class="modal fade" id="createPickupEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="createPickupEventForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Pickup Event</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Created by user</label>
+                            <select class="form-select" id="pickupEventCreatedByUserId" required>
+                                <option value="">Choose user</option>
+                                {% for user in user_options %}
+                                <option value="{{ user.id }}">{{ user.wp_number }} ({{ user.user_type }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Context</label>
+                            <select class="form-select" id="pickupEventContext" required>
+                                <option value="">Choose context</option>
+                                <option value="Airport Pickup">Airport Pickup</option>
+                                <option value="Ride to Airport">Ride to Airport</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Country</label>
+                            <select class="form-select" id="pickupEventCountryId" required>
+                                <option value="">Choose country</option>
+                                {% for country in country_options %}
+                                <option value="{{ country.id }}">{{ country.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Airport</label>
+                            <select class="form-select" id="pickupEventAirportId" required>
+                                <option value="">Choose airport</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">City</label>
+                            <select class="form-select" id="pickupEventCityId" required>
+                                <option value="">Choose city</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Event status</label>
+                            <select class="form-select" id="pickupEventStatusCreate" required>
+                                <option value="waiting">Waiting</option>
+                                <option value="accepted">Accepted</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Travel period</label>
+                            <select class="form-select" id="pickupEventTravelPeriod">
+                                <option value="">Optional</option>
+                                <option value="Dans moins de 72 heures">Dans moins de 72 heures</option>
+                                <option value="Cette semaine">Cette semaine</option>
+                                <option value="La semaine prochaine">La semaine prochaine</option>
+                                <option value="Une date ultérieure">Une date ultérieure</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Number of people</label>
+                            <select class="form-select" id="pickupEventNumOfPeople">
+                                <option value="">Optional</option>
+                                <option value="1 ou 2">1 ou 2</option>
+                                <option value="3 ou 4">3 ou 4</option>
+                                <option value="Plus de 4">Plus de 4</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Small cases</label>
+                            <select class="form-select" id="pickupEventNumOfSmallCases">
+                                <option value="">Optional</option>
+                                <option value="Aucune">Aucune</option>
+                                <option value="1 or 2">1 or 2</option>
+                                <option value="3 à 5">3 à 5</option>
+                                <option value="Plus de 5">Plus de 5</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Medium cases</label>
+                            <select class="form-select" id="pickupEventNumOfMedCases">
+                                <option value="">Optional</option>
+                                <option value="Aucune">Aucune</option>
+                                <option value="1 or 2">1 or 2</option>
+                                <option value="3 à 5">3 à 5</option>
+                                <option value="Plus de 5">Plus de 5</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Large cases</label>
+                            <select class="form-select" id="pickupEventNumOfLargeCases">
+                                <option value="">Optional</option>
+                                <option value="Aucune">Aucune</option>
+                                <option value="1 or 2">1 or 2</option>
+                                <option value="3 à 5">3 à 5</option>
+                                <option value="Plus de 5">Plus de 5</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="createPickupEventSubmitBtn" type="submit" class="btn btn-primary">
+                        <span class="btn-text">Create Event</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Saving...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Details Modal -->
+<div class="modal fade" id="pickupEventDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Pickup Event Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-2"><div class="col-5 fw-semibold">Created by</div><div class="col-7" id="pickupDetailsCreatedBy"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">Context</div><div class="col-7" id="pickupDetailsContext"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">Country</div><div class="col-7" id="pickupDetailsCountry"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">City</div><div class="col-7" id="pickupDetailsCity"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">Airport</div><div class="col-7" id="pickupDetailsAirport"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">Travel period</div><div class="col-7" id="pickupDetailsTravelPeriod"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">Number of people</div><div class="col-7" id="pickupDetailsNumOfPeople"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">Small cases</div><div class="col-7" id="pickupDetailsNumOfSmallCases"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">Medium cases</div><div class="col-7" id="pickupDetailsNumOfMedCases"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">Large cases</div><div class="col-7" id="pickupDetailsNumOfLargeCases"></div></div>
+                <div class="row mb-0"><div class="col-5 fw-semibold">Status</div><div class="col-7" id="pickupDetailsStatus"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invitations Modal -->
+<div class="modal fade" id="pickupEventInvitationsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Invitation Logs</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="max-height: 420px; overflow-y: auto;">
+                <div id="pickupEventInvitationsContainer"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update Status Modal -->
+<div class="modal fade" id="updatePickupEventStatusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="updatePickupEventStatusForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Update Pickup Event Status</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" id="pickupEventStatusEventId">
+
+                    <div class="mb-3">
+                        <label class="form-label">Created by user</label>
+                        <input type="text" class="form-control" id="pickupEventStatusUserWp" disabled>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Event status</label>
+                        <select class="form-select" id="pickupEventNewStatus" required>
+                            <option value="waiting">Waiting</option>
+                            <option value="accepted">Accepted</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="updatePickupEventStatusSubmitBtn" type="submit" class="btn btn-primary">
+                        <span class="btn-text">Update Status</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Saving...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deletePickupEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="deletePickupEventForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Pickup Event</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" id="deletePickupEventId">
+                    <p class="mb-0" id="deletePickupEventMessage"></p>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="deletePickupEventSubmitBtn" type="submit" class="btn btn-danger">
+                        <span class="btn-text">Delete</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Deleting...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+const pickupEventsMap = {
+    {% if pickup_events.data %}
+        {% for item in pickup_events.data %}
+        "{{ item.id }}": {
+            id: "{{ item.id }}",
+            created_by_user_wp_number: "{{ item.created_by_user_wp_number|escape }}",
+            context: "{{ item.context|escape }}",
+            from_country: "{{ item.from_country|escape }}",
+            from_city: "{{ item.from_city|escape }}",
+            from_airport: "{{ item.from_airport|escape }}",
+            travel_period: "{{ item.travel_period|default('', true)|escape }}",
+            num_of_people: "{{ item.num_of_people|default('', true)|escape }}",
+            num_of_small_cases: "{{ item.num_of_small_cases|default('', true)|escape }}",
+            num_of_med_cases: "{{ item.num_of_med_cases|default('', true)|escape }}",
+            num_of_large_cases: "{{ item.num_of_large_cases|default('', true)|escape }}",
+            event_status: "{{ item.event_status }}",
+            invitation_logs: [
+                {% if item.invitation_logs %}
+                    {% for log in item.invitation_logs %}
+                    {
+                        invited_user_wp_number: "{{ log.invited_user_wp_number|escape }}",
+                        invitation_status: "{{ log.invitation_status }}",
+                        invited_at: "{{ log.invited_at if log.invited_at else '-' }}",
+                        responded_at: "{{ log.responded_at if log.responded_at else '-' }}"
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                {% endif %}
+            ]
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    {% endif %}
+};
+
+function setButtonLoading(button, isLoading) {
+    if (!button) return;
+    const textEl = button.querySelector(".btn-text");
+    const loadingEl = button.querySelector(".btn-loading");
+    button.disabled = isLoading;
+    if (textEl) textEl.classList.toggle("d-none", isLoading);
+    if (loadingEl) loadingEl.classList.toggle("d-none", !isLoading);
+}
+
+function reloadAfterAlert(icon, title, text) {
+    Swal.fire({ icon, title, text }).then(() => {
+        window.location.reload();
+    });
+}
+
+async function sendRequest(url, method, payload = null) {
+    const options = {
+        method: method,
+        headers: { "Content-Type": "application/json" }
+    };
+    if (payload) options.body = JSON.stringify(payload);
+    const response = await fetch(url, options);
+    return await response.json();
+}
+
+async function loadAirportsByCountry(countryId, selectedAirportId = "") {
+    const airportSelect = document.getElementById("pickupEventAirportId");
+    airportSelect.innerHTML = '<option value="">Choose airport</option>';
+
+    if (!countryId) return;
+
+    const response = await fetch(`/api/location/airports-by-country/${countryId}`);
+    const result = await response.json();
+
+    if (result.success && result.data) {
+        result.data.forEach((airport) => {
+            const option = document.createElement("option");
+            option.value = airport.id;
+            option.textContent = airport.name;
+            if (String(selectedAirportId) === String(airport.id)) option.selected = true;
+            airportSelect.appendChild(option);
+        });
+    }
+}
+
+async function loadCitiesByCountry(countryId, selectedCityId = "") {
+    const citySelect = document.getElementById("pickupEventCityId");
+    citySelect.innerHTML = '<option value="">Choose city</option>';
+
+    if (!countryId) return;
+
+    const response = await fetch(`/api/location/cities-by-country/${countryId}`);
+    const result = await response.json();
+
+    if (result.success && result.data) {
+        result.data.forEach((city) => {
+            const option = document.createElement("option");
+            option.value = city.id;
+            option.textContent = city.name;
+            if (String(selectedCityId) === String(city.id)) option.selected = true;
+            citySelect.appendChild(option);
+        });
+    }
+}
+
+function resetCreatePickupEventModal() {
+    document.getElementById("pickupEventCreatedByUserId").value = "";
+    document.getElementById("pickupEventContext").value = "";
+    document.getElementById("pickupEventCountryId").value = "";
+    document.getElementById("pickupEventAirportId").innerHTML = '<option value="">Choose airport</option>';
+    document.getElementById("pickupEventCityId").innerHTML = '<option value="">Choose city</option>';
+    document.getElementById("pickupEventTravelPeriod").value = "";
+    document.getElementById("pickupEventNumOfPeople").value = "";
+    document.getElementById("pickupEventNumOfSmallCases").value = "";
+    document.getElementById("pickupEventNumOfMedCases").value = "";
+    document.getElementById("pickupEventNumOfLargeCases").value = "";
+    document.getElementById("pickupEventStatusCreate").value = "waiting";
+}
+
+function openPickupEventDetailsModal(eventId) {
+    const item = pickupEventsMap[eventId];
+    document.getElementById("pickupDetailsCreatedBy").textContent = item.created_by_user_wp_number;
+    document.getElementById("pickupDetailsContext").textContent = item.context;
+    document.getElementById("pickupDetailsCountry").textContent = item.from_country;
+    document.getElementById("pickupDetailsCity").textContent = item.from_city;
+    document.getElementById("pickupDetailsAirport").textContent = item.from_airport;
+    document.getElementById("pickupDetailsTravelPeriod").textContent = item.travel_period || "-";
+    document.getElementById("pickupDetailsNumOfPeople").textContent = item.num_of_people || "-";
+    document.getElementById("pickupDetailsNumOfSmallCases").textContent = item.num_of_small_cases || "-";
+    document.getElementById("pickupDetailsNumOfMedCases").textContent = item.num_of_med_cases || "-";
+    document.getElementById("pickupDetailsNumOfLargeCases").textContent = item.num_of_large_cases || "-";
+    document.getElementById("pickupDetailsStatus").textContent = item.event_status;
+}
+
+function openPickupEventInvitationsModal(eventId) {
+    const item = pickupEventsMap[eventId];
+    const container = document.getElementById("pickupEventInvitationsContainer");
+
+    if (!item.invitation_logs || item.invitation_logs.length === 0) {
+        container.innerHTML = '<div class="text-muted">Nothing to show yet</div>';
+        return;
+    }
+
+    let html = '';
+    item.invitation_logs.forEach((log) => {
+        html += `
+            <div class="border rounded p-3 mb-3">
+                <div><strong>Invited user WhatsApp:</strong> ${log.invited_user_wp_number}</div>
+                <div><strong>Invitation Status:</strong> ${log.invitation_status}</div>
+                <div><strong>When invited:</strong> ${log.invited_at}</div>
+                <div><strong>When responded:</strong> ${log.responded_at}</div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function openUpdatePickupEventStatusModal(eventId, userWp, status) {
+    document.getElementById("pickupEventStatusEventId").value = eventId;
+    document.getElementById("pickupEventStatusUserWp").value = userWp;
+    document.getElementById("pickupEventNewStatus").value = status;
+}
+
+function openDeletePickupEventModal(eventId, userWp) {
+    document.getElementById("deletePickupEventId").value = eventId;
+    document.getElementById("deletePickupEventMessage").textContent =
+        `Are you sure you want to delete pickup event #${eventId} created by ${userWp}?`;
+}
+
+document.getElementById("pickupEventCountryId").addEventListener("change", async function () {
+    const countryId = this.value;
+    await loadAirportsByCountry(countryId);
+    await loadCitiesByCountry(countryId);
+});
+
+document.getElementById("createPickupEventForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("createPickupEventSubmitBtn");
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const payload = {
+            created_by_user_id: parseInt(document.getElementById("pickupEventCreatedByUserId").value),
+            context: document.getElementById("pickupEventContext").value,
+            from_country_id: parseInt(document.getElementById("pickupEventCountryId").value),
+            from_airport_id: parseInt(document.getElementById("pickupEventAirportId").value),
+            from_city_id: parseInt(document.getElementById("pickupEventCityId").value),
+            travel_period: document.getElementById("pickupEventTravelPeriod").value || null,
+            num_of_people: document.getElementById("pickupEventNumOfPeople").value || null,
+            num_of_small_cases: document.getElementById("pickupEventNumOfSmallCases").value || null,
+            num_of_med_cases: document.getElementById("pickupEventNumOfMedCases").value || null,
+            num_of_large_cases: document.getElementById("pickupEventNumOfLargeCases").value || null,
+            event_status: document.getElementById("pickupEventStatusCreate").value
+        };
+
+        const result = await sendRequest("/api/pickup-events", "POST", payload);
+
+        reloadAfterAlert(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        reloadAfterAlert("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+
+document.getElementById("updatePickupEventStatusForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("updatePickupEventStatusSubmitBtn");
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const eventId = document.getElementById("pickupEventStatusEventId").value;
+        const eventStatus = document.getElementById("pickupEventNewStatus").value;
+
+        const result = await sendRequest(`/api/pickup-events/${eventId}/status`, "PUT", {
+            event_status: eventStatus
+        });
+
+        reloadAfterAlert(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        reloadAfterAlert("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+
+document.getElementById("deletePickupEventForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("deletePickupEventSubmitBtn");
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const eventId = document.getElementById("deletePickupEventId").value;
+        const result = await sendRequest(`/api/pickup-events/${eventId}`, "DELETE");
+
+        reloadAfterAlert(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        reloadAfterAlert("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("pickupEventSearch");
+    const statusFilter = document.getElementById("pickupEventStatusFilter");
+    const fromDateInput = document.getElementById("pickupEventFromDate");
+    const toDateInput = document.getElementById("pickupEventToDate");
+    const todayBtn = document.getElementById("todayPickupEventsBtn");
+    const table = document.getElementById("pickupEventsTable");
+    const noResultsRow = document.getElementById("pickupEventsNoResultsRow");
+
+    function filterRows() {
+        if (!table) return;
+
+        const keyword = (searchInput.value || "").trim().toLowerCase();
+        const selectedStatus = (statusFilter.value || "").trim().toLowerCase();
+        const fromDate = fromDateInput.value || "";
+        const toDate = toDateInput.value || "";
+        const rows = table.querySelectorAll("tbody tr[data-user-wp]");
+
+        let visibleCount = 0;
+
+        rows.forEach((row) => {
+            const userWp = (row.getAttribute("data-user-wp") || "").toLowerCase();
+            const status = (row.getAttribute("data-status") || "").toLowerCase();
+            const createdAt = row.getAttribute("data-created-at") || "";
+
+            const matchesKeyword = userWp.includes(keyword);
+            const matchesStatus = !selectedStatus || status === selectedStatus;
+            const matchesFromDate = !fromDate || createdAt >= fromDate;
+            const matchesToDate = !toDate || createdAt <= toDate;
+
+            const show = matchesKeyword && matchesStatus && matchesFromDate && matchesToDate;
+            row.classList.toggle("d-none", !show);
+
+            if (show) visibleCount += 1;
+        });
+
+        if (noResultsRow) {
+            noResultsRow.classList.toggle("d-none", visibleCount !== 0);
+        }
+    }
+
+    if (searchInput) searchInput.addEventListener("input", filterRows);
+    if (statusFilter) statusFilter.addEventListener("change", filterRows);
+    if (fromDateInput) fromDateInput.addEventListener("change", filterRows);
+    if (toDateInput) toDateInput.addEventListener("change", filterRows);
+
+    if (todayBtn) {
+        todayBtn.addEventListener("click", function () {
+            const today = new Date().toISOString().split("T")[0];
+            fromDateInput.value = today;
+            toDateInput.value = today;
+            filterRows();
+        });
+    }
+});
+</script>
+{% endblock %}

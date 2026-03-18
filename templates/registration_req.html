@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+
+{% block title %}Registration Requests{% endblock %}
+{% block page_title %}Registration Requests{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="text-muted small">Total Requests</div>
+                <div class="h3 mb-0">{{ stats.total }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="text-muted small">Approved Requests</div>
+                <div class="h3 mb-0">{{ stats.approved }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="text-muted small">Rejected Requests</div>
+                <div class="h3 mb-0">{{ stats.rejected }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="text-muted small">Pending Requests</div>
+                <div class="h3 mb-0">{{ stats.pending }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+        <div class="row g-3 align-items-end mb-3">
+            <div class="col-md-4">
+                <label for="registrationRequestSearch" class="form-label fw-semibold">Search User WhatsApp</label>
+                <input type="text" id="registrationRequestSearch" class="form-control" placeholder="Type WhatsApp number...">
+            </div>
+
+            <div class="col-md-3">
+                <label for="registrationApproveStatusFilter" class="form-label fw-semibold">Filter by Approve Status</label>
+                <select id="registrationApproveStatusFilter" class="form-select">
+                    <option value="">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <button class="btn btn-primary"
+                        data-bs-toggle="modal"
+                        data-bs-target="#createRegistrationRequestModal">
+                    Create Request
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle" id="registrationRequestsTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>User WhatsApp</th>
+                        <th>Requested Role</th>
+                        <th>Approve Status</th>
+                        <th>Created at</th>
+                        <th>Updated at</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if registration_requests.data %}
+                        {% for item in registration_requests.data %}
+                        <tr
+                            data-user-wp="{{ item.user_wp_number }}"
+                            data-approve-status="{{ item.approve_status }}"
+                            id="registration-request-row-{{ item.id }}"
+                        >
+                            <td>{{ item.user_wp_number }}</td>
+                            <td>{{ item.requested_role }}</td>
+                            <td>
+                                <span class="badge
+                                    {% if item.approve_status == 'pending' %}bg-warning text-dark
+                                    {% elif item.approve_status == 'approved' %}bg-success
+                                    {% elif item.approve_status == 'rejected' %}bg-danger
+                                    {% else %}bg-secondary
+                                    {% endif %}">
+                                    {{ item.approve_status }}
+                                </span>
+                            </td>
+                            <td>{{ item.created_at if item.created_at else '-' }}</td>
+                            <td>{{ item.updated_at if item.updated_at else '-' }}</td>
+                            <td>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    {% if item.approve_status == 'pending' %}
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-success approve-btn"
+                                            onclick="approveRegistrationRequest('{{ item.id }}')">
+                                        <span class="btn-text">Approve</span>
+                                        <span class="btn-loading d-none">
+                                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                            Working...
+                                        </span>
+                                    </button>
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-warning reject-btn"
+                                            onclick="rejectRegistrationRequest('{{ item.id }}')">
+                                        <span class="btn-text">Reject</span>
+                                        <span class="btn-loading d-none">
+                                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                            Working...
+                                        </span>
+                                    </button>
+                                    {% endif %}
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger delete-btn"
+                                            onclick="deleteRegistrationRequest('{{ item.id }}')">
+                                        <span class="btn-text">Delete</span>
+                                        <span class="btn-loading d-none">
+                                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                            Deleting...
+                                        </span>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        <tr id="registrationRequestsNoResultsRow" class="d-none">
+                            <td colspan="6" class="text-center text-muted">No matching registration requests found.</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No registration requests found.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add new registration request modal -->
+<div class="modal fade" id="createRegistrationRequestModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="createRegistrationRequestForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Registration Request</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">User</label>
+                        <select class="form-select" id="createRegistrationRequestUserId" required>
+                            <option value="">Choose user</option>
+                            {% for user in user_options %}
+                            <option value="{{ user.id }}">{{ user.wp_number }} ({{ user.user_type }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Requested Role</label>
+                        <select class="form-select" id="createRegistrationRequestedRole" required>
+                            <option value="">Choose role</option>
+                            <option value="driver">Driver</option>
+                            <option value="professional">Professional</option>
+                        </select>
+                    </div>
+
+                    <div class="alert alert-info mb-0">
+                        Approve status will be set to <strong>pending</strong> automatically.
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="createRegistrationRequestSubmitBtn" type="submit" class="btn btn-primary">
+                        <span class="btn-text">Create Request</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Saving...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+function setButtonLoading(button, isLoading) {
+    if (!button) return;
+
+    const textEl = button.querySelector(".btn-text");
+    const loadingEl = button.querySelector(".btn-loading");
+
+    button.disabled = isLoading;
+
+    if (textEl) textEl.classList.toggle("d-none", isLoading);
+    if (loadingEl) loadingEl.classList.toggle("d-none", !isLoading);
+}
+
+function reloadAfterAlert(icon, title, text) {
+    Swal.fire({ icon, title, text }).then(() => {
+        window.location.reload();
+    });
+}
+
+async function sendRequest(url, method, payload = null) {
+    const options = {
+        method: method,
+        headers: { "Content-Type": "application/json" }
+    };
+
+    if (payload) {
+        options.body = JSON.stringify(payload);
+    }
+
+    const response = await fetch(url, options);
+    return await response.json();
+}
+
+async function approveRegistrationRequest(requestId) {
+    const row = document.getElementById(`registration-request-row-${requestId}`);
+    const button = row.querySelector(".approve-btn");
+    setButtonLoading(button, true);
+
+    try {
+        const result = await sendRequest(`/api/registration-requests/${requestId}/approve`, "PUT");
+
+        if (result.success) {
+            await Swal.fire({
+                icon: "success",
+                title: "Success",
+                text: result.message
+            });
+            window.location.reload();
+        } else {
+            await Swal.fire({
+                icon: "error",
+                title: "Failed",
+                text: result.message || "Failed to approve registration request."
+            });
+        }
+    } catch (error) {
+        await Swal.fire({
+            icon: "error",
+            title: "Failed",
+            text: "Something went wrong."
+        });
+    } finally {
+        setButtonLoading(button, false);
+    }
+}
+
+async function rejectRegistrationRequest(requestId) {
+    const row = document.getElementById(`registration-request-row-${requestId}`);
+    const button = row.querySelector(".reject-btn");
+    setButtonLoading(button, true);
+
+    try {
+        const result = await sendRequest(`/api/registration-requests/${requestId}/reject`, "PUT");
+
+        if (result.success) {
+            await Swal.fire({
+                icon: "success",
+                title: "Success",
+                text: result.message
+            });
+            window.location.reload();
+        } else {
+            await Swal.fire({
+                icon: "error",
+                title: "Failed",
+                text: result.message || "Failed to reject registration request."
+            });
+        }
+    } catch (error) {
+        await Swal.fire({
+            icon: "error",
+            title: "Failed",
+            text: "Something went wrong."
+        });
+    } finally {
+        setButtonLoading(button, false);
+    }
+}
+
+async function deleteRegistrationRequest(requestId) {
+    const confirmed = await Swal.fire({
+        icon: "warning",
+        title: "Delete request?",
+        text: "This action cannot be undone.",
+        showCancelButton: true,
+        confirmButtonText: "Yes, delete it",
+        cancelButtonText: "Cancel"
+    });
+
+    if (!confirmed.isConfirmed) return;
+
+    const row = document.getElementById(`registration-request-row-${requestId}`);
+    const button = row.querySelector(".delete-btn");
+    setButtonLoading(button, true);
+
+    try {
+        const result = await sendRequest(`/api/registration-requests/${requestId}`, "DELETE");
+
+        if (result.success) {
+            await Swal.fire({
+                icon: "success",
+                title: "Success",
+                text: result.message
+            });
+            window.location.reload();
+        } else {
+            await Swal.fire({
+                icon: "error",
+                title: "Failed",
+                text: result.message || "Failed to delete registration request."
+            });
+        }
+    } catch (error) {
+        await Swal.fire({
+            icon: "error",
+            title: "Failed",
+            text: "Something went wrong."
+        });
+    } finally {
+        setButtonLoading(button, false);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("registrationRequestSearch");
+    const statusFilter = document.getElementById("registrationApproveStatusFilter");
+    const table = document.getElementById("registrationRequestsTable");
+    const noResultsRow = document.getElementById("registrationRequestsNoResultsRow");
+
+    function filterRows() {
+        if (!table) return;
+
+        const keyword = (searchInput.value || "").trim().toLowerCase();
+        const selectedStatus = (statusFilter.value || "").trim().toLowerCase();
+        const rows = table.querySelectorAll("tbody tr[data-user-wp]");
+
+        let visibleCount = 0;
+
+        rows.forEach((row) => {
+            const userWp = (row.getAttribute("data-user-wp") || "").toLowerCase();
+            const approveStatus = (row.getAttribute("data-approve-status") || "").toLowerCase();
+
+            const matchesKeyword = userWp.includes(keyword);
+            const matchesStatus = !selectedStatus || approveStatus === selectedStatus;
+
+            const show = matchesKeyword && matchesStatus;
+            row.classList.toggle("d-none", !show);
+
+            if (show) visibleCount += 1;
+        });
+
+        if (noResultsRow) {
+            noResultsRow.classList.toggle("d-none", visibleCount !== 0);
+        }
+    }
+
+    if (searchInput) searchInput.addEventListener("input", filterRows);
+    if (statusFilter) statusFilter.addEventListener("change", filterRows);
+});
+</script>
+<script>
+document.getElementById("createRegistrationRequestForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("createRegistrationRequestSubmitBtn");
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const userId = parseInt(document.getElementById("createRegistrationRequestUserId").value);
+        const requestedRole = document.getElementById("createRegistrationRequestedRole").value;
+
+        const result = await sendRequest("/api/registration-requests", "POST", {
+            user_id: userId,
+            requested_role: requestedRole
+        });
+
+        if (result.success) {
+            await Swal.fire({
+                icon: "success",
+                title: "Success",
+                text: result.message
+            });
+            window.location.reload();
+        } else {
+            await Swal.fire({
+                icon: "error",
+                title: "Failed",
+                text: result.message || "Failed to create registration request."
+            });
+        }
+    } catch (error) {
+        await Swal.fire({
+            icon: "error",
+            title: "Failed",
+            text: "Something went wrong."
+        });
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,612 @@
+{% extends "base.html" %}
+
+{% block title %}Parcel Events{% endblock %}
+{% block page_title %}Parcel Events{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+
+        <div class="row g-3 align-items-end mb-3">
+            <div class="col-md-3">
+                <label for="parcelEventSearch" class="form-label fw-semibold">Search by creator WhatsApp</label>
+                <input type="text" id="parcelEventSearch" class="form-control" placeholder="Type WhatsApp number...">
+            </div>
+
+            <div class="col-md-2">
+                <label for="parcelEventStatusFilter" class="form-label fw-semibold">Event status</label>
+                <select id="parcelEventStatusFilter" class="form-select">
+                    <option value="">All statuses</option>
+                    <option value="waiting">Waiting</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label for="parcelEventFromDate" class="form-label fw-semibold">From date</label>
+                <input type="date" id="parcelEventFromDate" class="form-control">
+            </div>
+
+            <div class="col-md-2">
+                <label for="parcelEventToDate" class="form-label fw-semibold">To date</label>
+                <input type="date" id="parcelEventToDate" class="form-control">
+            </div>
+
+            <div class="col-md-3 d-flex gap-2 justify-content-md-end">
+                <button type="button" class="btn btn-outline-primary" id="todayParcelEventsBtn">
+                    Today's Events
+                </button>
+                <button class="btn btn-primary"
+                        data-bs-toggle="modal"
+                        data-bs-target="#createParcelEventModal"
+                        onclick="resetCreateParcelEventModal()">
+                    Add New
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle" id="parcelEventsTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Created By User (WhatsApp)</th>
+                        <th>Details</th>
+                        <th>Status</th>
+                        <th>Invitations</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if parcel_events.data %}
+                        {% for item in parcel_events.data %}
+                        <tr
+                            data-user-wp="{{ item.created_by_user_wp_number }}"
+                            data-status="{{ item.event_status }}"
+                            data-created-at="{{ item.created_at.strftime('%Y-%m-%d') if item.created_at else '' }}"
+                        >
+                            <td>{{ item.created_by_user_wp_number }}</td>
+
+                            <td>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#parcelEventDetailsModal"
+                                        onclick="openParcelEventDetailsModal('{{ item.id }}')">
+                                    Check
+                                </button>
+                            </td>
+
+                            <td>
+                                <span class="badge
+                                    {% if item.event_status == 'waiting' %}bg-warning text-dark
+                                    {% elif item.event_status == 'accepted' %}bg-success
+                                    {% elif item.event_status == 'cancelled' %}bg-danger
+                                    {% else %}bg-secondary
+                                    {% endif %}">
+                                    {{ item.event_status }}
+                                </span>
+                            </td>
+
+                            <td>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-info"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#parcelEventInvitationsModal"
+                                        onclick="openParcelEventInvitationsModal('{{ item.id }}')">
+                                    Check
+                                </button>
+                            </td>
+
+                            <td>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#updateParcelEventStatusModal"
+                                            onclick="openUpdateParcelEventStatusModal('{{ item.id }}', '{{ item.created_by_user_wp_number|escape }}', '{{ item.event_status }}')">
+                                        Update Status
+                                    </button>
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteParcelEventModal"
+                                            onclick="openDeleteParcelEventModal('{{ item.id }}', '{{ item.created_by_user_wp_number|escape }}')">
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        <tr id="parcelEventsNoResultsRow" class="d-none">
+                            <td colspan="5" class="text-center text-muted">No matching parcel events found.</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">No parcel events found.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create Parcel Event Modal -->
+<div class="modal fade" id="createParcelEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="createParcelEventForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Parcel Event</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Created by user</label>
+                            <select class="form-select" id="parcelEventCreatedByUserId" required>
+                                <option value="">Choose user</option>
+                                {% for user in user_options %}
+                                <option value="{{ user.id }}">{{ user.wp_number }} ({{ user.user_type }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Event status</label>
+                            <select class="form-select" id="parcelEventStatusCreate" required>
+                                <option value="waiting">Waiting</option>
+                                <option value="accepted">Accepted</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">From Country</label>
+                            <select class="form-select" id="parcelEventFromCountryId" required>
+                                <option value="">Choose country</option>
+                                {% for country in country_options %}
+                                <option value="{{ country.id }}">{{ country.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">To Country</label>
+                            <select class="form-select" id="parcelEventToCountryId" required>
+                                <option value="">Choose country</option>
+                                {% for country in country_options %}
+                                <option value="{{ country.id }}">{{ country.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">From City</label>
+                            <select class="form-select" id="parcelEventFromCityId" required>
+                                <option value="">Choose city</option>
+                                {% for city in city_options %}
+                                <option value="{{ city.id }}">{{ city.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">To City</label>
+                            <select class="form-select" id="parcelEventToCityId" required>
+                                <option value="">Choose city</option>
+                                {% for city in city_options %}
+                                <option value="{{ city.id }}">{{ city.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Travel period</label>
+                            <select class="form-select" id="parcelEventTravelPeriod" required>
+                                <option value="">Choose travel period</option>
+                                <option value="Dans moins de 72 heures">Dans moins de 72 heures</option>
+                                <option value="Cette semaine">Cette semaine</option>
+                                <option value="La semaine prochaine">La semaine prochaine</option>
+                                <option value="Une date ultérieure">Une date ultérieure</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Shipment type</label>
+                            <select class="form-select" id="parcelEventShipmentType" required>
+                                <option value="">Choose shipment type</option>
+                                <option value="Documents">Documents</option>
+                                <option value="Petit colis">Petit colis</option>
+                                <option value="Moyen colis">Moyen colis</option>
+                                <option value="Grand colis">Grand colis</option>
+                                <option value="Mixte petit/moyen colis">Mixte petit/moyen colis</option>
+                                <option value="Mixte tous types colis">Mixte tous types colis</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="createParcelEventSubmitBtn" type="submit" class="btn btn-primary">
+                        <span class="btn-text">Create Event</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Saving...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Details Modal -->
+<div class="modal fade" id="parcelEventDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Parcel Event Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-2"><div class="col-5 fw-semibold">Created by</div><div class="col-7" id="eventDetailsCreatedBy"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">From Country</div><div class="col-7" id="eventDetailsFromCountry"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">To Country</div><div class="col-7" id="eventDetailsToCountry"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">From City</div><div class="col-7" id="eventDetailsFromCity"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">To City</div><div class="col-7" id="eventDetailsToCity"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">Travel period</div><div class="col-7" id="eventDetailsTravelPeriod"></div></div>
+                <div class="row mb-2"><div class="col-5 fw-semibold">Shipment type</div><div class="col-7" id="eventDetailsShipmentType"></div></div>
+                <div class="row mb-0"><div class="col-5 fw-semibold">Status</div><div class="col-7" id="eventDetailsStatus"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invitations Modal -->
+<div class="modal fade" id="parcelEventInvitationsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Invitation Logs</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="max-height: 420px; overflow-y: auto;">
+                <div id="parcelEventInvitationsContainer"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update Status Modal -->
+<div class="modal fade" id="updateParcelEventStatusModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="updateParcelEventStatusForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Update Parcel Event Status</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" id="parcelEventStatusEventId">
+
+                    <div class="mb-3">
+                        <label class="form-label">Created by user</label>
+                        <input type="text" class="form-control" id="parcelEventStatusUserWp" disabled>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Event status</label>
+                        <select class="form-select" id="parcelEventNewStatus" required>
+                            <option value="waiting">Waiting</option>
+                            <option value="accepted">Accepted</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="updateParcelEventStatusSubmitBtn" type="submit" class="btn btn-primary">
+                        <span class="btn-text">Update Status</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Saving...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteParcelEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="deleteParcelEventForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Parcel Event</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" id="deleteParcelEventId">
+                    <p class="mb-0" id="deleteParcelEventMessage"></p>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="deleteParcelEventSubmitBtn" type="submit" class="btn btn-danger">
+                        <span class="btn-text">Delete</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                            Deleting...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+const parcelEventsMap = {
+    {% if parcel_events.data %}
+        {% for item in parcel_events.data %}
+        "{{ item.id }}": {
+            id: "{{ item.id }}",
+            created_by_user_wp_number: "{{ item.created_by_user_wp_number|escape }}",
+            from_country: "{{ item.from_country|escape }}",
+            to_country: "{{ item.to_country|escape }}",
+            from_city: "{{ item.from_city|escape }}",
+            to_city: "{{ item.to_city|escape }}",
+            travel_period: "{{ item.travel_period|escape }}",
+            shipment_type: "{{ item.shipment_type|escape }}",
+            event_status: "{{ item.event_status }}",
+            invitation_logs: [
+                {% if item.invitation_logs %}
+                    {% for log in item.invitation_logs %}
+                    {
+                        invited_user_wp_number: "{{ log.invited_user_wp_number|escape }}",
+                        invitation_status: "{{ log.invitation_status }}",
+                        invited_at: "{{ log.invited_at if log.invited_at else '-' }}",
+                        responded_at: "{{ log.responded_at if log.responded_at else '-' }}"
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                {% endif %}
+            ]
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    {% endif %}
+};
+
+function setButtonLoading(button, isLoading) {
+    if (!button) return;
+    const textEl = button.querySelector(".btn-text");
+    const loadingEl = button.querySelector(".btn-loading");
+    button.disabled = isLoading;
+    if (textEl) textEl.classList.toggle("d-none", isLoading);
+    if (loadingEl) loadingEl.classList.toggle("d-none", !isLoading);
+}
+
+function reloadAfterAlert(icon, title, text) {
+    Swal.fire({ icon, title, text }).then(() => {
+        window.location.reload();
+    });
+}
+
+async function sendRequest(url, method, payload = null) {
+    const options = {
+        method: method,
+        headers: { "Content-Type": "application/json" }
+    };
+    if (payload) options.body = JSON.stringify(payload);
+    const response = await fetch(url, options);
+    return await response.json();
+}
+
+function resetCreateParcelEventModal() {
+    document.getElementById("parcelEventCreatedByUserId").value = "";
+    document.getElementById("parcelEventFromCountryId").value = "";
+    document.getElementById("parcelEventToCountryId").value = "";
+    document.getElementById("parcelEventFromCityId").value = "";
+    document.getElementById("parcelEventToCityId").value = "";
+    document.getElementById("parcelEventTravelPeriod").value = "";
+    document.getElementById("parcelEventShipmentType").value = "";
+    document.getElementById("parcelEventStatusCreate").value = "waiting";
+}
+
+function openParcelEventDetailsModal(eventId) {
+    const item = parcelEventsMap[eventId];
+    document.getElementById("eventDetailsCreatedBy").textContent = item.created_by_user_wp_number;
+    document.getElementById("eventDetailsFromCountry").textContent = item.from_country;
+    document.getElementById("eventDetailsToCountry").textContent = item.to_country;
+    document.getElementById("eventDetailsFromCity").textContent = item.from_city;
+    document.getElementById("eventDetailsToCity").textContent = item.to_city;
+    document.getElementById("eventDetailsTravelPeriod").textContent = item.travel_period;
+    document.getElementById("eventDetailsShipmentType").textContent = item.shipment_type;
+    document.getElementById("eventDetailsStatus").textContent = item.event_status;
+}
+
+function openParcelEventInvitationsModal(eventId) {
+    const item = parcelEventsMap[eventId];
+    const container = document.getElementById("parcelEventInvitationsContainer");
+
+    if (!item.invitation_logs || item.invitation_logs.length === 0) {
+        container.innerHTML = '<div class="text-muted">Nothing to show yet</div>';
+        return;
+    }
+
+    let html = '';
+    item.invitation_logs.forEach((log) => {
+        html += `
+            <div class="border rounded p-3 mb-3">
+                <div><strong>Invited user WhatsApp:</strong> ${log.invited_user_wp_number}</div>
+                <div><strong>Invitation Status:</strong> ${log.invitation_status}</div>
+                <div><strong>When invited:</strong> ${log.invited_at}</div>
+                <div><strong>When responded:</strong> ${log.responded_at}</div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function openUpdateParcelEventStatusModal(eventId, userWp, status) {
+    document.getElementById("parcelEventStatusEventId").value = eventId;
+    document.getElementById("parcelEventStatusUserWp").value = userWp;
+    document.getElementById("parcelEventNewStatus").value = status;
+}
+
+function openDeleteParcelEventModal(eventId, userWp) {
+    document.getElementById("deleteParcelEventId").value = eventId;
+    document.getElementById("deleteParcelEventMessage").textContent =
+        `Are you sure you want to delete parcel event #${eventId} created by ${userWp}?`;
+}
+
+document.getElementById("createParcelEventForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("createParcelEventSubmitBtn");
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const payload = {
+            created_by_user_id: parseInt(document.getElementById("parcelEventCreatedByUserId").value),
+            from_country_id: parseInt(document.getElementById("parcelEventFromCountryId").value),
+            to_country_id: parseInt(document.getElementById("parcelEventToCountryId").value),
+            from_city_id: parseInt(document.getElementById("parcelEventFromCityId").value),
+            to_city_id: parseInt(document.getElementById("parcelEventToCityId").value),
+            travel_period: document.getElementById("parcelEventTravelPeriod").value,
+            shipment_type: document.getElementById("parcelEventShipmentType").value,
+            event_status: document.getElementById("parcelEventStatusCreate").value
+        };
+
+        const result = await sendRequest("/api/parcel-events", "POST", payload);
+
+        reloadAfterAlert(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        reloadAfterAlert("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+
+document.getElementById("updateParcelEventStatusForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("updateParcelEventStatusSubmitBtn");
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const eventId = document.getElementById("parcelEventStatusEventId").value;
+        const eventStatus = document.getElementById("parcelEventNewStatus").value;
+
+        const result = await sendRequest(`/api/parcel-events/${eventId}/status`, "PUT", {
+            event_status: eventStatus
+        });
+
+        reloadAfterAlert(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        reloadAfterAlert("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+
+document.getElementById("deleteParcelEventForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById("deleteParcelEventSubmitBtn");
+    setButtonLoading(submitBtn, true);
+
+    try {
+        const eventId = document.getElementById("deleteParcelEventId").value;
+
+        const result = await sendRequest(`/api/parcel-events/${eventId}`, "DELETE");
+
+        reloadAfterAlert(
+            result.success ? "success" : "error",
+            result.success ? "Success" : "Failed",
+            result.message
+        );
+    } catch (error) {
+        reloadAfterAlert("error", "Failed", "Something went wrong.");
+    } finally {
+        setButtonLoading(submitBtn, false);
+    }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("parcelEventSearch");
+    const statusFilter = document.getElementById("parcelEventStatusFilter");
+    const fromDateInput = document.getElementById("parcelEventFromDate");
+    const toDateInput = document.getElementById("parcelEventToDate");
+    const todayBtn = document.getElementById("todayParcelEventsBtn");
+    const table = document.getElementById("parcelEventsTable");
+    const noResultsRow = document.getElementById("parcelEventsNoResultsRow");
+
+    function filterRows() {
+        if (!table) return;
+
+        const keyword = (searchInput.value || "").trim().toLowerCase();
+        const selectedStatus = (statusFilter.value || "").trim().toLowerCase();
+        const fromDate = fromDateInput.value || "";
+        const toDate = toDateInput.value || "";
+        const rows = table.querySelectorAll("tbody tr[data-user-wp]");
+
+        let visibleCount = 0;
+
+        rows.forEach((row) => {
+            const userWp = (row.getAttribute("data-user-wp") || "").toLowerCase();
+            const status = (row.getAttribute("data-status") || "").toLowerCase();
+            const createdAt = row.getAttribute("data-created-at") || "";
+
+            const matchesKeyword = userWp.includes(keyword);
+            const matchesStatus = !selectedStatus || status === selectedStatus;
+            const matchesFromDate = !fromDate || createdAt >= fromDate;
+            const matchesToDate = !toDate || createdAt <= toDate;
+
+            const show = matchesKeyword && matchesStatus && matchesFromDate && matchesToDate;
+            row.classList.toggle("d-none", !show);
+
+            if (show) visibleCount += 1;
+        });
+
+        if (noResultsRow) {
+            noResultsRow.classList.toggle("d-none", visibleCount !== 0);
+        }
+    }
+
+    if (searchInput) searchInput.addEventListener("input", filterRows);
+    if (statusFilter) statusFilter.addEventListener("change", filterRows);
+    if (fromDateInput) fromDateInput.addEventListener("change", filterRows);
+    if (toDateInput) toDateInput.addEventListener("change", filterRows);
+
+    if (todayBtn) {
+        todayBtn.addEventListener("click", function () {
+            const today = new Date().toISOString().split("T")[0];
+            fromDateInput.value = today;
+            toDateInput.value = today;
+            filterRows();
+        });
+    }
+});
+</script>
+{% endblock %}
