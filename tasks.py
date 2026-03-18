@@ -9348,7 +9348,7 @@ def process_webhook(self, payload: dict):
                             
                             # ✅✅✅
                             elif list_msg_id == "pur_li":
-                                text = "🛒 Pour acheter des crédits 💰, cliquez sur le lien 🔗 ci-dessous :\n\n👉 https://jokko-ai.sn/"
+                                text = "🛒 Pour acheter des crédits 💰, cliquez sur le lien 🔗 ci-dessous :\n\n👉 https://jokko-ai.sn/achat-credits"
 
                                 payload = {
                                     "messaging_product": "whatsapp",
@@ -9676,7 +9676,7 @@ def process_webhook(self, payload: dict):
                                                 "rows": [
                                                     {
                                                         "id": "other_r_cred",
-                                                        "title": "Afficher crédits restants"
+                                                        "title": "Voir crédits restants"
                                                     },
                                                     {
                                                         "id": "other_pur_li",
@@ -13275,7 +13275,7 @@ def process_webhook(self, payload: dict):
                             
                             # ✅✅✅
                             elif list_msg_id == "pur_li":
-                                text = "🛒 Pour acheter des crédits 💰, cliquez sur le lien 🔗 ci-dessous :\n\n👉 https://jokko-ai.sn/"
+                                text = "🛒 Pour acheter des crédits 💰, cliquez sur le lien 🔗 ci-dessous :\n\n👉 https://jokko-ai.sn/achat-credits"
 
                                 payload = {
                                     "messaging_product": "whatsapp",
